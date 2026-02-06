@@ -1,62 +1,43 @@
 const outlook = require('./src/outlook.service');
-const sentinel = require('./src/sentinel.core');
-const config = require('./src/config');
 
-// Simple logging helper
-function log(msg) {
-    console.log(`[${new Date().toISOString()}] ${msg}`);
-}
+async function main() {
+    const command = process.argv[2];
+    const arg1 = process.argv[3];
+    const arg2 = process.argv[4];
 
-async function runCheck() {
-    log('🤖 Sentinela: Iniciando varredura...');
-    
     try {
-        const messages = await outlook.getUnreadMessages();
-        
-        if (messages.length === 0) {
-            log('Nenhum e-mail novo não lido.');
-            return;
-        }
+        switch (command) {
+            case 'list':
+                // Retorna JSON puro para eu (Toddy) ler
+                const messages = await outlook.getUnreadMessages();
+                console.log(JSON.stringify(messages, null, 2));
+                break;
 
-        for (const msg of messages) {
-            if (sentinel.isProcessed(msg.id)) continue;
+            case 'delete':
+                if (!arg1) throw new Error('ID necessário');
+                await outlook.deleteMessage(arg1);
+                console.log(`🗑️ Deletado: ${arg1}`);
+                break;
 
-            const analysis = sentinel.analyze(msg);
+            case 'mark-read':
+                if (!arg1) throw new Error('ID necessário');
+                await outlook.markAsRead(arg1);
+                console.log(`👁️ Marcado como lido: ${arg1}`);
+                break;
             
-            // Marca como processado para não alertar de novo
-            sentinel.markProcessed(msg.id);
+            case 'move':
+                if (!arg1 || !arg2) throw new Error('ID e FolderID necessários');
+                await outlook.moveMessage(arg1, arg2);
+                console.log(`📂 Movido: ${arg1} -> ${arg2}`);
+                break;
 
-            switch (analysis.action) {
-                case 'NOTIFY_URGENT':
-                    log(`🚨 ALERTA VIP: ${analysis.from} - ${analysis.subject}`);
-                    // TODO: Integração WhatsApp
-                    break;
-                case 'NOTIFY':
-                    log(`🔔 Novo E-mail: ${analysis.from} - ${analysis.subject}`);
-                    break;
-                case 'LOG_ONLY':
-                    log(`💰 Financeiro (Arquivando): ${analysis.from} - ${analysis.subject}`);
-                    await outlook.markAsRead(msg.id);
-                    break;
-                case 'IGNORE':
-                    log(`🗑️ Deletando Spam/Mkt: ${analysis.from}`);
-                    await outlook.deleteMessage(msg.id);
-                    break;
-            }
+            default:
+                console.log('Comandos disponíveis: list, delete <id>, mark-read <id>, move <id> <folderId>');
         }
     } catch (e) {
-        console.error('Erro na execução do Sentinela:', e);
+        console.error('Erro:', e.message);
+        process.exit(1);
     }
 }
 
-// Se chamado diretamente
-if (require.main === module) {
-    const args = process.argv.slice(2);
-    if (args.includes('--loop')) {
-        log(`Iniciando loop de monitoramento a cada ${config.checkInterval / 60000} minutos.`);
-        runCheck();
-        setInterval(runCheck, config.checkInterval);
-    } else {
-        runCheck();
-    }
-}
+main();
