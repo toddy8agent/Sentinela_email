@@ -6,9 +6,15 @@ class OutlookService {
     async request(method, endpoint, data = null) {
         const token = await authService.getToken();
         
+        // Garante que o endpoint esteja codificado corretamente
+        const path = `/v1.0/users/${config.targetEmail}${endpoint}`;
+        // Encode URI Component não é ideal para path completo, melhor usar URL object se fosse url completa,
+        // mas aqui o problema é provavel na query string passada em getUnreadMessages.
+        // Vamos deixar o encode para quem chama ou usar encodeURI aqui.
+        
         const options = {
             hostname: 'graph.microsoft.com',
-            path: `/v1.0/users/${config.targetEmail}${endpoint}`,
+            path: encodeURI(path), // Fix: Encode path to handle spaces/$ etc
             method: method,
             headers: {
                 'Authorization': `Bearer ${token}`,
@@ -41,6 +47,8 @@ class OutlookService {
 
     async getUnreadMessages() {
         // Busca apenas não lidos, ordenados por data
+        // Importante: encodeURI na chamada ou no request method.
+        // O $filter e outros parâmetros do OData tem espaços e $ que o Node reclama.
         const query = '?$filter=isRead eq false&$orderby=receivedDateTime DESC&$top=20';
         const response = await this.request('GET', `/messages${query}`);
         return response.value || [];
@@ -52,6 +60,11 @@ class OutlookService {
     
     async moveMessage(messageId, destinationId) {
          await this.request('POST', `/messages/${messageId}/move`, { destinationId });
+    }
+
+    async deleteMessage(messageId) {
+        // Na API Graph, DELETE move para "Itens Excluídos" (Soft Delete)
+        await this.request('DELETE', `/messages/${messageId}`);
     }
 }
 

@@ -29,16 +29,18 @@ async function runCheck() {
             switch (analysis.action) {
                 case 'NOTIFY_URGENT':
                     log(`🚨 ALERTA VIP: ${analysis.from} - ${analysis.subject}`);
-                    // Aqui seria a integração com WhatsApp
+                    // TODO: Integração WhatsApp
                     break;
                 case 'NOTIFY':
                     log(`🔔 Novo E-mail: ${analysis.from} - ${analysis.subject}`);
                     break;
                 case 'LOG_ONLY':
-                    log(`💰 Financeiro (Silencioso): ${analysis.from} - ${analysis.subject}`);
+                    log(`💰 Financeiro (Arquivando): ${analysis.from} - ${analysis.subject}`);
+                    await outlook.markAsRead(msg.id);
                     break;
                 case 'IGNORE':
-                    log(`🗑️ Ignorado: ${analysis.from}`);
+                    log(`🗑️ Deletando Spam/Mkt: ${analysis.from}`);
+                    await outlook.deleteMessage(msg.id);
                     break;
             }
         }
